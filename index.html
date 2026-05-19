@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WealthSIP • Smart Goal Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    .glass { background: rgba(255,255,255,0.08); backdrop-filter: blur(16px); }
+    .hero-bg { background: linear-gradient(135deg, #4f46e5 0%, #c026d3 100%); }
+    .card-hover { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card-hover:hover { transform: translateY(-8px) scale(1.02); }
+  </style>
+</head>
+<body class="bg-gray-950 text-white">
+
+  <!-- Navbar -->
+  <nav class="fixed top-0 w-full bg-black/90 backdrop-blur-lg z-50 border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-rocket text-3xl text-violet-500"></i>
+        <h1 class="text-3xl font-bold tracking-tighter">WealthSIP</h1>
+      </div>
+      <div class="flex items-center gap-6">
+        <select id="currency" onchange="calculate()" class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm">
+          <option value="INR">₹ INR</option>
+        </select>
+        <select id="lang" onchange="switchLanguage()" class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm">
+          <option value="en">English</option>
+          <option value="hi">हिंदी</option>
+        </select>
+        <button onclick="toggleTheme()" class="p-3 rounded-2xl hover:bg-gray-800">
+          <i id="theme-icon" class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero-bg pt-28 pb-16 text-center relative overflow-hidden">
+    <div class="max-w-5xl mx-auto px-6">
+      <h2 id="hero-title" class="text-6xl md:text-7xl font-bold mb-6">Turn Dreams Into Numbers</h2>
+      <p id="hero-subtitle" class="text-xl text-violet-100">Plan your goals with inflation-adjusted SIP calculator</p>
+    </div>
+  </section>
+
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <!-- Goal Tabs -->
+    <div class="flex flex-wrap gap-3 mb-10" id="goal-tabs">
+      <button onclick="setGoal(0)" class="goal-tab active px-6 py-3 rounded-2xl">💰 General SIP</button>
+      <button onclick="setGoal(1)" class="goal-tab px-6 py-3 rounded-2xl">🚗 Car</button>
+      <button onclick="setGoal(2)" class="goal-tab px-6 py-3 rounded-2xl">🏠 House</button>
+      <button onclick="setGoal(3)" class="goal-tab px-6 py-3 rounded-2xl">👴 Retirement</button>
+      <button onclick="setGoal(4)" class="goal-tab px-6 py-3 rounded-2xl">🎯 Custom</button>
+    </div>
+
+    <div class="grid lg:grid-cols-12 gap-10">
+      <!-- Inputs -->
+      <div class="lg:col-span-5 bg-gray-900/70 border border-gray-700 rounded-3xl p-8 glass">
+        <h3 id="form-title" class="text-2xl font-semibold mb-8">Plan Your Investment</h3>
+
+        <div class="space-y-8">
+          <div>
+            <label class="block text-sm text-gray-400 mb-2" id="lbl-monthly">Monthly SIP</label>
+            <input type="range" id="sip" min="1000" max="200000" step="1000" value="10000" class="w-full accent-violet-500">
+            <div class="text-right font-mono text-lg" id="sip-val">₹10,000</div>
+          </div>
+
+          <div>
+            <label class="block text-sm text-gray-400 mb-2" id="lbl-rate">Expected Return (%)</label>
+            <input type="range" id="rate" min="6" max="25" step="0.5" value="12" class="w-full accent-violet-500">
+            <div class="text-right font-mono text-lg" id="rate-val">12%</div>
+          </div>
+
+          <div>
+            <label class="block text-sm text-gray-400 mb-2" id="lbl-years">Years</label>
+            <input type="range" id="years" min="1" max="40" value="10" class="w-full accent-violet-500">
+            <div class="text-right font-mono text-lg" id="year-val">10</div>
+          </div>
+
+          <div>
+            <label class="block text-sm text-gray-400 mb-2" id="lbl-inflation">Inflation (%)</label>
+            <input type="range" id="inflation" min="2" max="12" step="0.5" value="6" class="w-full accent-amber-500">
+            <div class="text-right font-mono text-lg" id="inf-val">6%</div>
+          </div>
+
+          <div id="step-row">
+            <label class="block text-sm text-gray-400 mb-2" id="lbl-step">Annual Step-up (%)</label>
+            <input type="range" id="step" min="0" max="20" value="10" class="w-full accent-violet-500">
+            <div class="text-right font-mono text-lg" id="step-val">10%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="lg:col-span-7 space-y-8">
+        <div class="bg-gradient-to-br from-violet-900 to-fuchsia-900 rounded-3xl p-10 glass border border-violet-500/30">
+          <div class="flex justify-between items-start">
+            <div>
+              <p id="lbl-final" class="text-violet-200">Final Wealth (Nominal)</p>
+              <p id="final" class="text-5xl font-bold mt-2">₹28,45,678</p>
+            </div>
+            <div class="text-right">
+              <p id="lbl-real" class="text-amber-200">Inflation Adjusted</p>
+              <p id="real-value" class="text-3xl font-semibold text-amber-300">₹18,92,345</p>
+            </div>
+          </div>
+
+          <div class="my-10 h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div id="progress" class="h-2 bg-gradient-to-r from-violet-400 to-fuchsia-400 w-3/4 rounded-full"></div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p id="lbl-invested" class="text-xs text-gray-400">Invested</p>
+              <p id="invested" class="font-mono text-xl">₹12,00,000</p>
+            </div>
+            <div>
+              <p id="lbl-returns" class="text-xs text-gray-400">Returns</p>
+              <p id="returns" class="font-mono text-xl text-emerald-400">₹16,45,678</p>
+            </div>
+            <div>
+              <p id="lbl-goal" class="text-xs text-gray-400">Goal Achieved</p>
+              <p id="achievement" class="font-mono text-xl text-emerald-400">✓ Yes</p>
+            </div>
+          </div>
+        </div>
+
+        <canvas id="growthChart" class="bg-gray-900 rounded-3xl p-6"></canvas>
+
+        <div class="flex gap-4">
+          <button onclick="saveCalculation()" class="flex-1 bg-white/10 hover:bg-white/20 py-5 rounded-2xl font-medium transition">💾 Save This Plan</button>
+          <button onclick="exportAll()" class="flex-1 bg-white/10 hover:bg-white/20 py-5 rounded-2xl font-medium transition">📤 Export All</button>
+          <button onclick="triggerConfetti()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 py-5 rounded-2xl font-medium transition">🎉 Celebrate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saved Plans -->
+  <div class="max-w-7xl mx-auto px-6 py-16 border-t border-gray-800">
+    <h3 id="saved-title" class="text-2xl font-semibold mb-6">Saved Plans</h3>
+    <div id="saved-plans" class="grid md:grid-cols-3 gap-6"></div>
+  </div>
+
+  <script>
+    let currentGoal = 0;
+    let chart;
+    let calculations = JSON.parse(localStorage.getItem('wealthsip_plans')) || [];
+
+    const currencySymbols = { INR: '₹', USD: '$', EUR: '€' };
+    let currentCurrency = 'INR';
+
+    const translations = {
+      en: { /* default */ },
+      hi: {
+        "Turn Dreams Into Numbers": "सपनों को संख्याओं में बदलें",
+        "Plan Your Investment": "अपना निवेश प्लान करें",
+        "Monthly SIP": "मासिक SIP",
+        "Final Wealth (Nominal)": "अंतिम धन (नॉमिनल)",
+        "Inflation Adjusted": "मुद्रास्फीति समायोजित",
+        "Saved Plans": "सेव प्लान्स",
+        // Add more as needed
+      }
+    };
+
+    function setGoal(n) {
+      currentGoal = n;
+      document.querySelectorAll('.goal-tab').forEach((t,i) => {
+        t.classList.toggle('active', i===n);
+        t.classList.toggle('bg-violet-600', i===n);
+      });
+
+      const presets = [
+        {sip:10000, years:10, rate:12},     // General
+        {sip:15000, years:5, rate:12},      // Car
+        {sip:30000, years:12, rate:13},     // House
+        {sip:20000, years:25, rate:11},     // Retirement
+        {sip:10000, years:10, rate:12}      // Custom
+      ];
+
+      document.getElementById('sip').value = presets[n].sip;
+      document.getElementById('years').value = presets[n].years;
+      document.getElementById('rate').value = presets[n].rate;
+      calculate();
+    }
+
+    function formatAmount(num) {
+      return currencySymbols[currentCurrency] + Math.round(num).toLocaleString('en-IN');
+    }
+
+    function calculate() {
+      const monthly = parseFloat(document.getElementById('sip').value);
+      const annualRate = parseFloat(document.getElementById('rate').value) / 100;
+      const years = parseFloat(document.getElementById('years').value);
+      const inflation = parseFloat(document.getElementById('inflation').value) / 100;
+      const stepUp = parseFloat(document.getElementById('step').value) / 100;
+
+      const months = years * 12;
+      const r = annualRate / 12;
+      let invested = 0;
+      let fv = 0;
+
+      for (let i = 0; i < months; i++) {
+        const currentSIP = monthly * Math.pow(1 + stepUp, Math.floor(i/12));
+        fv += currentSIP * Math.pow(1 + r, months - i - 1);
+        invested += currentSIP;
+      }
+
+      const returns = fv - invested;
+      const realFV = fv / Math.pow(1 + inflation, years);
+
+      document.getElementById('invested').textContent = formatAmount(invested);
+      document.getElementById('returns').textContent = formatAmount(returns);
+      document.getElementById('final').textContent = formatAmount(fv);
+      document.getElementById('real-value').textContent = formatAmount(realFV);
+
+      // Progress
+      document.getElementById('progress').style.width = Math.min(100, (realFV / (invested * 2)) * 100) + '%';
+
+      updateChart(invested, fv, years);
+      updateSliders();
+    }
+
+    function updateSliders() {
+      document.getElementById('sip-val').textContent = formatAmount(parseFloat(document.getElementById('sip').value));
+      document.getElementById('rate-val').textContent = document.getElementById('rate').value + '%';
+      document.getElementById('year-val').textContent = document.getElementById('years').value;
+      document.getElementById('inf-val').textContent = document.getElementById('inflation').value + '%';
+      document.getElementById('step-val').textContent = document.getElementById('step').value + '%';
+    }
+
+    function updateChart(monthly, annualRate, years, stepUp) {
+  const ctx = document.getElementById('growthChart');
+  if (chart) chart.destroy();
+
+  // Prepare labels (yearly)
+  const labels = Array.from({ length: years + 1 }, (_, i) => `${i} Yr`);
+
+  // Initialize invested and wealth arrays
+  let investedData = [0];
+  let wealthData = [0];
+
+  let invested = 0;
+  let fv = 0;
+  const months = years * 12;
+  const monthlyRate = annualRate / 12;
+
+  for (let year = 0; year <= years; year++) {
+    let amountThisYear = 0;
+    // Calculate total invested till this year
+    for (let m = 0; m < year * 12; m++) {
+      const currentSIP = monthly * Math.pow(1 + stepUp, Math.floor(m / 12));
+      invested += m === 0 ? 0 : 0; // Only count once after loop below
+      amountThisYear = invested + currentSIP;
+    }
+
+    // Instead, accumulate invested correctly:
+    // For invested, sum monthly SIP with step-up till year
+    let investedTillYear = 0;
+    for (let m = 0; m < year * 12; m++) {
+      investedTillYear += monthly * Math.pow(1 + stepUp, Math.floor(m / 12));
+    }
+
+    investedData.push(investedTillYear);
+
+    // For wealth, calculate Future value of monthly SIP with step-up till year
+    let fvYear = 0;
+    for (let m = 0; m < year * 12; m++) {
+      const currentSIP = monthly * Math.pow(1 + stepUp, Math.floor(m / 12));
+      fvYear += currentSIP * Math.pow(1 + monthlyRate, year * 12 - m - 1);
+    }
+    wealthData.push(fvYear);
+  }
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Invested',
+          data: investedData,
+          borderColor: '#64748b',
+          borderDash: [3, 3],
+          fill: false,
+          tension: 0.3,
+        },
+        {
+          label: 'Projected Wealth',
+          data: wealthData,
+          borderColor: '#c026d3',
+          fill: true,
+          backgroundColor: 'rgba(192, 38, 211, 0.3)',
+          tension: 0.4,
+        }
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            font: { size: 14 }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => formatAmount(ctx.parsed.y)
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: {
+            callback: val => formatAmount(val),
+          }
+        }
+      }
+    }
+  });
+}
+
+function calculate() {
+  const monthly = parseFloat(document.getElementById('sip').value);
+  const annualRate = parseFloat(document.getElementById('rate').value) / 100;
+  const years = parseFloat(document.getElementById('years').value);
+  const inflation = parseFloat(document.getElementById('inflation').value) / 100;
+  const stepUp = parseFloat(document.getElementById('step').value) / 100;
+  const months = years * 12;
+  const r = annualRate / 12;
+  let invested = 0;
+  let fv = 0;
+
+  for (let i = 0; i < months; i++) {
+    const currentSIP = monthly * Math.pow(1 + stepUp, Math.floor(i / 12));
+    fv += currentSIP * Math.pow(1 + r, months - i - 1);
+    invested += currentSIP;
+  }
+
+  const returns = fv - invested;
+  const realFV = fv / Math.pow(1 + inflation, years);
+
+  document.getElementById('invested').textContent = formatAmount(invested);
+  document.getElementById('returns').textContent = formatAmount(returns);
+  document.getElementById('final').textContent = formatAmount(fv);
+  document.getElementById('real-value').textContent = formatAmount(realFV);
+
+  // Progress bar example: goal is double the invested amount
+  document.getElementById('progress').style.width = Math.min(100, (realFV / (invested * 2)) * 100) + '%';
+
+  updateChart(monthly, annualRate, years, stepUp);
+  updateSliders();
+}
+
+
+    function saveCalculation() {
+      const plan = {
+        id: Date.now(),
+        goal: ['General SIP','Car','House','Retirement','Custom'][currentGoal],
+        invested: document.getElementById('invested').textContent,
+        final: document.getElementById('final').textContent,
+        date: new Date().toLocaleDateString('en-IN')
+      };
+      calculations.push(plan);
+      localStorage.setItem('wealthsip_plans', JSON.stringify(calculations));
+      renderSavedPlans();
+      triggerConfetti();
+    }
+
+    function renderSavedPlans() {
+      const container = document.getElementById('saved-plans');
+      container.innerHTML = calculations.map(p => `
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 card-hover">
+          <p class="text-violet-400">${p.goal}</p>
+          <p class="text-2xl font-bold mt-2">${p.final}</p>
+          <p class="text-sm text-gray-500 mt-4">${p.date}</p>
+        </div>
+      `).join('');
+    }
+
+    function exportAll() {
+      const dataStr = JSON.stringify(calculations, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      const link = document.createElement('a');
+      link.href = dataUri;
+      link.download = 'wealthsip_plans.json';
+      link.click();
+    }
+
+    function triggerConfetti() {
+      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+      const icon = document.getElementById('theme-icon');
+      icon.classList.toggle('fa-moon');
+      icon.classList.toggle('fa-sun');
+    }
+
+    function switchLanguage() {
+      alert("Hindi support coming in full version! Currently English only.");
+      // Full translation can be implemented easily
+    }
+
+    // Event Listeners
+    ['sip','rate','years','inflation','step'].forEach(id => {
+      document.getElementById(id).addEventListener('input', calculate);
+    });
+
+    document.getElementById('currency').addEventListener('change', (e) => {
+      currentCurrency = e.target.value;
+      calculate();
+    });
+
+    // Init
+    window.onload = () => {
+      setGoal(0);
+      renderSavedPlans();
+      calculate();
+    };
+  </script>
+</body>
+</html>
